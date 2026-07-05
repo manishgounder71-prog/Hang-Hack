@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,42 +23,42 @@ async def get_dashboard(
         if cached is not None:
             return cached
 
-    # Real stats from SQLAlchemy DB
-    memory_count_result = await session.execute(
-        select(func.count(Memory.id)).where(Memory.user_id == user_id)
+    # Query DB stats and Cognee stats in parallel to avoid sequential blocking
+    db_queries = asyncio.gather(
+        session.execute(select(func.count(Memory.id)).where(Memory.user_id == user_id)),
+        session.execute(select(func.count(Skill.id)).where(Skill.user_id == user_id)),
+        session.execute(select(func.count(Reflection.id)).where(Reflection.user_id == user_id)),
+        session.execute(select(func.count(Prediction.id)).where(Prediction.user_id == user_id)),
+        session.execute(select(func.count(KnowledgeNode.id)).where(KnowledgeNode.user_id == user_id)),
+        session.execute(
+            select(Memory)
+            .where(Memory.user_id == user_id)
+            .order_by(Memory.created_at.desc())
+            .limit(5)
+        ),
+        get_memory_stats(user_id)
     )
+
+    (
+        memory_count_result,
+        skill_count_result,
+        reflection_count_result,
+        prediction_count_result,
+        node_count_result,
+        recent_memories_result,
+        cognee_stats
+    ) = await db_queries
+
     memory_count = memory_count_result.scalar() or 0
-
-    skill_count_result = await session.execute(
-        select(func.count(Skill.id)).where(Skill.user_id == user_id)
-    )
     skill_count = skill_count_result.scalar() or 0
-
-    reflection_count_result = await session.execute(
-        select(func.count(Reflection.id)).where(Reflection.user_id == user_id)
-    )
     reflection_count = reflection_count_result.scalar() or 0
-
-    prediction_count_result = await session.execute(
-        select(func.count(Prediction.id)).where(Prediction.user_id == user_id)
-    )
     prediction_count = prediction_count_result.scalar() or 0
-
-    node_count_result = await session.execute(
-        select(func.count(KnowledgeNode.id)).where(KnowledgeNode.user_id == user_id)
-    )
     node_count = node_count_result.scalar() or 0
 
     # Real edge count from knowledge graph
     edge_count = node_count * 2 if node_count > 1 else 0
 
     # Recent memories
-    recent_memories_result = await session.execute(
-        select(Memory)
-        .where(Memory.user_id == user_id)
-        .order_by(Memory.created_at.desc())
-        .limit(5)
-    )
     recent_memories = [
         {
             "id": m.id,
@@ -68,9 +69,6 @@ async def get_dashboard(
         }
         for m in recent_memories_result.scalars().all()
     ]
-
-    # Try to get Cognee stats too
-    cognee_stats = await get_memory_stats(user_id)
 
     result = {
         "memory_count": max(memory_count, cognee_stats.get("memory_count", 0)),

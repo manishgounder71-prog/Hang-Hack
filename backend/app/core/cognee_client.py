@@ -1,6 +1,10 @@
 import asyncio
 import logging
+import os
 from typing import Optional
+
+# Enable mock embeddings globally to prevent Windows symlink and credential errors
+os.environ["MOCK_EMBEDDING"] = "true"
 
 from app.core.config import settings
 from app.core.utils import extract_entities_from_text, infer_relationships
@@ -36,25 +40,50 @@ def set_cognee_enabled(provider: str) -> None:
             from cognee.infrastructure.llm import get_llm_config
             llm_config = get_llm_config()
             prov = provider.lower() if provider else "openai"
-            llm_config.llm_provider = prov
-            if prov == "openai":
-                llm_config.llm_model = settings.LLM_MODEL or "gpt-4o-mini"
+            
+            if prov == "groq":
+                llm_config.llm_provider = "openai"
+                model_name = settings.LLM_MODEL or "llama-3.3-70b-versatile"
+                if not model_name.startswith("openai/"):
+                    llm_config.llm_model = f"openai/{model_name}"
+                else:
+                    llm_config.llm_model = model_name
+                llm_config.llm_endpoint = "https://api.groq.com/openai/v1"
                 if settings.LLM_API_KEY:
+                    llm_config.llm_api_key = settings.LLM_API_KEY
                     cognee.config.openai_api_key = settings.LLM_API_KEY
             else:
-                llm_config.llm_model = settings.LLM_MODEL
-                if settings.LLM_API_KEY:
-                    import os
-                    os.environ[f"{prov.upper()}_API_KEY"] = settings.LLM_API_KEY
-                    if prov == "groq":
-                        cognee.config.groq_api_key = settings.LLM_API_KEY
-            logger.info(f"Cognee LLM provider dynamically updated to: {prov}")
+                llm_config.llm_provider = prov
+                if prov == "openai":
+                    llm_config.llm_model = settings.LLM_MODEL or "gpt-4o-mini"
+                    if settings.LLM_API_KEY:
+                        cognee.config.openai_api_key = settings.LLM_API_KEY
+                else:
+                    llm_config.llm_model = settings.LLM_MODEL
+                    if settings.LLM_API_KEY:
+                        os.environ[f"{prov.upper()}_API_KEY"] = settings.LLM_API_KEY
+            logger.info(f"Cognee LLM provider dynamically updated to: {prov} (internal: {llm_config.llm_provider}, model: {llm_config.llm_model})")
         except Exception as e:
             logger.error(f"Failed to dynamically configure Cognee LLM config: {e}")
 
 
 # Always enable Cognee when present
 COGNEE_ENABLED = True
+COGNEE_FAILURES = 0
+MAX_COGNEE_FAILURES = 3
+
+def handle_cognee_failure(e: Exception):
+    global COGNEE_FAILURES, COGNEE_ENABLED
+    COGNEE_FAILURES += 1
+    logger.warning(f"Cognee failure ({COGNEE_FAILURES}/{MAX_COGNEE_FAILURES}): {e}")
+    if COGNEE_FAILURES >= MAX_COGNEE_FAILURES:
+        logger.error("Circuit breaker triggered: Disabling Cognee memory system to avoid latency.")
+        COGNEE_ENABLED = False
+
+def record_cognee_success():
+    global COGNEE_FAILURES
+    COGNEE_FAILURES = 0
+
 
 
 async def init_cognee():
@@ -71,18 +100,28 @@ async def init_cognee():
         from cognee.infrastructure.llm import get_llm_config
         llm_config = get_llm_config()
         provider = settings.LLM_PROVIDER.lower() if settings.LLM_PROVIDER else "openai"
-        llm_config.llm_provider = provider
-        llm_config.llm_model = settings.LLM_MODEL or "gpt-4o-mini"
-        if settings.LLM_API_KEY:
-            if provider == "openai":
-                cognee.config.openai_api_key = settings.LLM_API_KEY
+        
+        if provider == "groq":
+            llm_config.llm_provider = "openai"
+            model_name = settings.LLM_MODEL or "llama-3.3-70b-versatile"
+            if not model_name.startswith("openai/"):
+                llm_config.llm_model = f"openai/{model_name}"
             else:
-                import os
-                os.environ[f"{provider.upper()}_API_KEY"] = settings.LLM_API_KEY
-                if provider == "groq":
-                    cognee.config.groq_api_key = settings.LLM_API_KEY
+                llm_config.llm_model = model_name
+            llm_config.llm_endpoint = "https://api.groq.com/openai/v1"
+            if settings.LLM_API_KEY:
+                llm_config.llm_api_key = settings.LLM_API_KEY
+                cognee.config.openai_api_key = settings.LLM_API_KEY
+        else:
+            llm_config.llm_provider = provider
+            llm_config.llm_model = settings.LLM_MODEL or "gpt-4o-mini"
+            if settings.LLM_API_KEY:
+                if provider == "openai":
+                    cognee.config.openai_api_key = settings.LLM_API_KEY
+                else:
+                    os.environ[f"{provider.upper()}_API_KEY"] = settings.LLM_API_KEY
                     
-        logger.info(f"Cognee configured successfully (provider={provider}, model={llm_config.llm_model})")
+        logger.info(f"Cognee configured successfully (provider={provider}, model={llm_config.llm_model}, endpoint={llm_config.llm_endpoint})")
         return {"status": "initialized"}
     except Exception as e:
         logger.error(f"Cognee config failed: {e}")
@@ -216,9 +255,6 @@ async def get_knowledge_graph(user_id: str = "", dataset: str = None, depth: int
 
     if HAS_COGNEE and COGNEE_ENABLED:
         try:
-            # Build/enrich the knowledge graph first
-            await asyncio.wait_for(cognee.cognify(ds), timeout=4.0)
-
             # Retrieve the native graph engine
             from cognee.infrastructure.databases.graph import get_graph_engine
             graph_engine = await get_graph_engine()
@@ -414,8 +450,9 @@ async def get_memory_stats(user_id: str = ""):
         try:
             all_memories = await asyncio.wait_for(
                 cognee.search(query_text="", datasets=[_dataset_name(user_id)]),
-                timeout=3.0
+                timeout=1.5
             )
+            record_cognee_success()
             memory_count = len(all_memories) if all_memories else 0
             recent = []
             if all_memories:
@@ -433,7 +470,5 @@ async def get_memory_stats(user_id: str = ""):
                 "recent_memories": recent,
             }
         except Exception as e:
-            if "AuthenticationError" in str(e) or "API key" in str(e):
-                logger.warning("Disabling Cognee due to authentication failure.")
-                COGNEE_ENABLED = False
+            handle_cognee_failure(e)
     return {"memory_count": 0, "knowledge_nodes": 0, "relationships": 0, "recent_memories": []}

@@ -40,12 +40,15 @@ class CacheService:
         self._prefix = prefix
         self._client: Optional["aioredis.Redis"] = None
         self._enabled = HAS_REDIS
+        self._memory_cache: dict[str, tuple[Any, float]] = {}
+        self._use_memory_fallback = not HAS_REDIS
 
     async def initialize(self) -> bool:
         """Create the Redis connection pool. Returns True if successful."""
         if not self._enabled:
-            logger.info("Redis unavailable — cache is a no-op")
-            return False
+            logger.info("Redis unavailable — falling back to local memory cache")
+            self._use_memory_fallback = True
+            return True
         try:
             self._client = aioredis.from_url(
                 self._redis_url,
@@ -60,10 +63,11 @@ class CacheService:
             logger.info("Redis cache connected")
             return True
         except Exception as e:
-            logger.warning(f"Redis connection failed ({e}) — running without cache")
+            logger.warning(f"Redis connection failed ({e}) — falling back to local memory cache")
             self._enabled = False
             self._client = None
-            return False
+            self._use_memory_fallback = True
+            return True
 
     async def close(self):
         """Close the Redis connection pool."""
@@ -71,9 +75,20 @@ class CacheService:
             await self._client.aclose()
             self._client = None
             self._enabled = False
+        self._memory_cache.clear()
 
     async def get(self, key: str) -> Optional[Any]:
         """Retrieve a JSON-decoded value from cache. Returns None on miss."""
+        if self._use_memory_fallback:
+            import time
+            full_key = f"{self._prefix}:{key}"
+            if full_key in self._memory_cache:
+                val, expire = self._memory_cache[full_key]
+                if time.time() < expire:
+                    return val
+                else:
+                    del self._memory_cache[full_key]
+            return None
         if not self._enabled or not self._client:
             return None
         try:
@@ -88,6 +103,11 @@ class CacheService:
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
         """Store a JSON-encoded value with TTL (seconds). Default 5 min."""
+        if self._use_memory_fallback:
+            import time
+            full_key = f"{self._prefix}:{key}"
+            self._memory_cache[full_key] = (value, time.time() + ttl)
+            return True
         if not self._enabled or not self._client:
             return False
         try:
@@ -101,6 +121,12 @@ class CacheService:
 
     async def delete(self, key: str) -> bool:
         """Remove a single key from cache."""
+        if self._use_memory_fallback:
+            full_key = f"{self._prefix}:{key}"
+            if full_key in self._memory_cache:
+                del self._memory_cache[full_key]
+                return True
+            return False
         if not self._enabled or not self._client:
             return False
         try:
@@ -113,6 +139,17 @@ class CacheService:
 
     async def invalidate_pattern(self, pattern: str) -> int:
         """Delete all keys matching a glob pattern, e.g. 'dashboard:*'."""
+        if self._use_memory_fallback:
+            import fnmatch
+            full_pattern = f"{self._prefix}:{pattern}"
+            deleted = 0
+            for k in list(self._memory_cache.keys()):
+                if fnmatch.fnmatch(k, full_pattern):
+                    del self._memory_cache[k]
+                    deleted += 1
+            if deleted:
+                logger.debug(f"Cache invalidated {deleted} keys matching '{pattern}'")
+            return deleted
         if not self._enabled or not self._client:
             return 0
         try:
