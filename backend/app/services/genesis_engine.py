@@ -6,7 +6,8 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.cognee_client import recall_memories, remember_content
+from app.core.cognee_client import remember_content
+from app.core.rag import rag_store
 from app.core.llm import llm
 from app.models.memory import Memory
 
@@ -15,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 class GenesisEngine:
     async def process_message(self, message: str, user_id: str, session: AsyncSession) -> dict:
-        relevant_memories = await recall_memories(message, user_id=user_id, limit=10)
-
         await remember_content(
             content=message, content_type="chat_message", user_id=user_id,
             metadata={"direction": "user"},
@@ -26,6 +25,9 @@ class GenesisEngine:
             metadata={"direction": "user"},
         )
         session.add(db_memory)
+        await session.flush()
+
+        await rag_store.store(message, user_id=user_id, session=session)
 
         history_stmt = (
             select(Memory)
@@ -40,23 +42,27 @@ class GenesisEngine:
             for m in history_mems
         ])
 
-        response = await self._generate_response(message, relevant_memories[:5], history_formatted, user_id)
+        rag_results = await rag_store.query(
+            message, user_id=user_id, limit=3, session=session
+        )
+
+        response = await self._generate_response(
+            message, history_formatted, rag_results
+        )
 
         await remember_content(
-            content=response.get("response", ""), content_type="chat_response", user_id=user_id,
-            metadata={"direction": "assistant"},
+            content=response.get("response", ""), content_type="chat_response",
+            user_id=user_id, metadata={"direction": "assistant"},
         )
         response_memory = Memory(
-            user_id=user_id, content=response.get("response", ""), content_type="chat_response",
-            metadata={"direction": "assistant"},
+            user_id=user_id, content=response.get("response", ""),
+            content_type="chat_response", metadata={"direction": "assistant"},
         )
         session.add(response_memory)
 
         return response
 
     async def stream_chat(self, message: str, user_id: str, session: AsyncSession) -> AsyncGenerator[str, None]:
-        relevant_memories = await recall_memories(message, user_id=user_id, limit=5)
-
         await remember_content(
             content=message, content_type="chat_message", user_id=user_id,
             metadata={"direction": "user"},
@@ -66,6 +72,9 @@ class GenesisEngine:
             metadata={"direction": "user"},
         )
         session.add(db_memory)
+        await session.flush()
+
+        await rag_store.store(message, user_id=user_id, session=session)
 
         history_stmt = (
             select(Memory)
@@ -80,19 +89,25 @@ class GenesisEngine:
             for m in history_mems
         ])
 
-        system = """You are Genesis AI, a helpful AI assistant with persistent memory. Help the user with their questions.
-If you have genuinely relevant memories from past conversations, use them to provide better answers.
-Otherwise just answer normally without mentioning memory."""
+        rag_results = await rag_store.query(
+            message, user_id=user_id, limit=3, session=session
+        )
 
-        memories_json = json.dumps([{k: str(v) for k, v in m.items() if isinstance(v, (str, int, float, bool))} for m in relevant_memories], default=str)[:2000]
+        system = """You are Genesis AI, a helpful AI assistant. Answer naturally and concisely.
+Use the conversation history and any provided context to answer. Never mention memory, recall, or past conversations explicitly."""
+
+        context_lines = ""
+        if rag_results:
+            context_lines = "\nRelevant past context:\n" + "\n".join(
+                f"- {r['content'][:200]}" for r in rag_results
+            )
+
         user = f"""User: {message}
 
-Recent conversation:
-{history_formatted}
+Conversation history:
+{history_formatted}{context_lines}
 
-Past memories: {memories_json}
-
-Respond helpfully. Only mention past memories if they are directly relevant."""
+Respond naturally."""
 
         full_response = ""
         try:
@@ -125,20 +140,23 @@ Respond helpfully. Only mention past memories if they are directly relevant."""
 
         yield f"data: {json.dumps({'done': True})}\n\n"
 
-    async def _generate_response(self, message: str, memories: list, history: str, user_id: str) -> dict:
-        system = """You are Genesis AI, a helpful AI assistant with persistent memory. Help the user with their questions.
-Answer concisely. Only reference past memories if they are genuinely relevant to the current question."""
+    async def _generate_response(self, message: str, history: str,
+                                  rag_results: list) -> dict:
+        system = """You are Genesis AI, a helpful AI assistant. Answer naturally and concisely.
+Use the conversation history and any provided context to answer. Never mention memory, recall, or past conversations explicitly."""
 
-        memories_json = json.dumps(memories, default=str)[:2000]
+        context_lines = ""
+        if rag_results:
+            context_lines = "\nRelevant past context:\n" + "\n".join(
+                f"- {r['content'][:200]}" for r in rag_results
+            )
 
         user = f"""User: {message}
 
-Recent conversation:
-{history}
+Conversation history:
+{history}{context_lines}
 
-Past memories: {memories_json}
-
-Respond helpfully."""
+Respond naturally."""
 
         try:
             content = await llm.chat(system, user)
@@ -148,7 +166,7 @@ Respond helpfully."""
 
         return {
             "response": content,
-            "memories_used": [],
-            "memories_count": len(memories),
+            "memories_used": [str(r["id"]) for r in rag_results],
+            "memories_count": len(rag_results),
             "reasoning_path": [],
         }
