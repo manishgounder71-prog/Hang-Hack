@@ -12,14 +12,11 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 
 def _serialize(settings: UserSettings) -> dict:
-    """Serialize ORM model using Pydantic schema, stripping API keys entirely."""
-    data = SettingsSchema.model_validate(settings).model_dump()
-    data.pop("llm_api_key", None)
-    data.pop("cognee_api_key", None)
-    return data
+    """Serialize ORM model using Pydantic schema."""
+    return SettingsSchema.model_validate(settings).model_dump()
 
 
-@router.get("", response_model=SettingsSchema)
+@router.get("", response_model=SettingsSchema, response_model_exclude={"llm_api_key", "cognee_api_key"})
 async def get_settings(
     user_id: str = "default",
     session: AsyncSession = Depends(get_session),
