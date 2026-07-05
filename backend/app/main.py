@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.auth import get_current_user
 from app.core.middleware import RateLimitMiddleware, RequestValidationMiddleware
 from app.api import auth as auth_router
-from app.api import chat, memories, reflections, predictions, skills, knowledge, dashboard, upload, websocket, monitor
+from app.api import chat, memories, reflections, predictions, skills, knowledge, dashboard, upload, websocket, monitor, demo
 from app.api import settings as settings_router
 from app.agents.event_bus import event_bus
 from app.agents.memory_agent import MemoryAgent
@@ -69,6 +69,7 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_PER_MINUTE)
 app.add_middleware(RequestValidationMiddleware)
 
+app.include_router(demo.router)
 app.include_router(monitor.router)
 app.include_router(auth_router.router)
 app.include_router(chat.router)
