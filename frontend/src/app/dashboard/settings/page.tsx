@@ -349,7 +349,7 @@ export default function SettingsPage() {
             <SettingSection icon={Key} title="API Keys">
               <TextInput label="LLM API Key" icon={Globe} value={settings.llm_api_key} onChange={(v) => update('llm_api_key', v)} isPassword placeholder="sk-..." />
               <SelectInput label="LLM Provider" options={['OpenAI', 'Anthropic', 'Groq', 'Google Gemini', 'Ollama (Local)']} value={settings.llm_provider} onChange={(v) => update('llm_provider', v)} />
-              <SelectInput label="LLM Model" options={['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'llama3-70b']} value={settings.llm_model} onChange={(v) => update('llm_model', v)} />
+              <SelectInput label="LLM Model" options={['gpt-4o', 'gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-2.0-flash', 'llama-3.3-70b-versatile']} value={settings.llm_model} onChange={(v) => update('llm_model', v)} />
               <TextInput label="Cognee API Key (optional)" icon={Database} value={settings.cognee_api_key} onChange={(v) => update('cognee_api_key', v)} isPassword placeholder="Enter Cognee API key" />
             </SettingSection>
             <SettingSection icon={Wifi} title="WebSocket & Streaming">
