@@ -11,27 +11,11 @@ from app.schemas.memory import SettingsSchema
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-def _mask_key(key: str) -> str:
-    """Mask an API key showing only the last 4 characters.
-    Returns an empty string if the key is empty.
-    """
-    if not key or len(key) < 8:
-        return ""
-    return key[:4] + "****..." + key[-4:]
-
-
-def _is_masked(value: str) -> bool:
-    """Check if a value is a masked key (contains **** pattern)."""
-    return "****" in value if value else False
-
-
 def _serialize(settings: UserSettings) -> dict:
-    """Serialize ORM model using Pydantic schema, masking API keys."""
+    """Serialize ORM model using Pydantic schema, stripping API keys entirely."""
     data = SettingsSchema.model_validate(settings).model_dump()
-    if data.get("llm_api_key"):
-        data["llm_api_key"] = _mask_key(data["llm_api_key"])
-    if data.get("cognee_api_key"):
-        data["cognee_api_key"] = _mask_key(data["cognee_api_key"])
+    data.pop("llm_api_key", None)
+    data.pop("cognee_api_key", None)
     return data
 
 
@@ -86,15 +70,15 @@ async def update_settings(
     # Only update API keys if they contain new (non-masked) values
     # Masked keys (e.g. "sk-****...ab12") are sent back from the frontend
     # and should not overwrite the stored full key
-    if payload.llm_api_key and not _is_masked(payload.llm_api_key):
+    if payload.llm_api_key:
         settings.llm_api_key = payload.llm_api_key
-    if payload.cognee_api_key and not _is_masked(payload.cognee_api_key):
+    if payload.cognee_api_key:
         settings.cognee_api_key = payload.cognee_api_key
 
     # Sync the global LLM singleton with updated settings
     llm.provider = payload.llm_provider
     llm.model = payload.llm_model
-    if payload.llm_api_key and not _is_masked(payload.llm_api_key):
+    if payload.llm_api_key:
         llm.api_key = payload.llm_api_key
 
     # Update Cognee enable/disable based on the new provider
