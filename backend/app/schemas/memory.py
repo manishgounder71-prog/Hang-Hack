@@ -27,14 +27,14 @@ class MemoryResponse(BaseModel):
 class SkillCreate(BaseModel):
     name: str
     description: str = ""
-    steps: List[dict] = []
+    steps: list = []
 
 
 class SkillResponse(BaseModel):
     id: str
     name: str
     description: str
-    steps: List[dict]
+    steps: list
     confidence_score: float
     use_count: int
     created_at: datetime
