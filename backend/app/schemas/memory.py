@@ -122,8 +122,8 @@ class SettingsSchema(BaseModel):
     system_updates: bool = True
 
     # API Config
-    llm_provider: str = "openai"
-    llm_model: str = "gpt-4o-mini"
+    llm_provider: str = "groq"
+    llm_model: str = "llama-3.3-70b-versatile"
     llm_api_key: str = ""
     cognee_api_key: str = ""
 

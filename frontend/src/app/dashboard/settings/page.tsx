@@ -41,7 +41,7 @@ const defaultSettings: SettingsData = {
   skill_auto_detection: false, response_style: 'balanced', memory_recall_count: 10,
   anonymous_usage_data: false, encrypt_memories: true, session_timeout: '24 hours',
   weekly_summary: true, skill_detected_notify: true, prediction_alerts: false, system_updates: true,
-  llm_provider: 'openai', llm_model: 'gpt-4o-mini', llm_api_key: '', cognee_api_key: '',
+  llm_provider: 'groq', llm_model: 'llama-3.3-70b-versatile', llm_api_key: '', cognee_api_key: '',
   enable_websocket: true, streaming_responses: true, connection_mode: 'auto',
   username: '', email: '', storage_capacity_pct: 34,
 }

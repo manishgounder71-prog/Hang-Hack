@@ -14,10 +14,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://genesis:genesis@localhost:5432/genesis"
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    LLM_PROVIDER: str = "openai"
+    LLM_PROVIDER: str = "groq"
     LLM_API_KEY: Optional[str] = None
     LLM_API_URL: Optional[str] = None
-    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
 
     COGNEE_API_KEY: Optional[str] = None
     COGNEE_API_URL: str = "https://api.cognee.ai/v1"

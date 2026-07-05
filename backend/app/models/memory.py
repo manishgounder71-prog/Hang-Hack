@@ -145,8 +145,8 @@ class UserSettings(Base):
     system_updates = Column(Integer, default=1)
 
     # API Config
-    llm_provider = Column(String, default="openai")
-    llm_model = Column(String, default="gpt-4o-mini")
+    llm_provider = Column(String, default="groq")
+    llm_model = Column(String, default="llama-3.3-70b-versatile")
     llm_api_key = Column(String, default="")
     cognee_api_key = Column(String, default="")
 
