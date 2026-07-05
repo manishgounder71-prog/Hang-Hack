@@ -1,0 +1,35 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.1.0, pluggy-1.6.0 -- C:/msys64/ucrt64/bin/python.exe
+rootdir: D:/hang hack/backend
+plugins: anyio-4.14.0, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 20 items
+
+tests/test_api.py::TestHealthEndpoints::test_root PASSED                 [  5%]
+tests/test_api.py::TestHealthEndpoints::test_health PASSED               [ 10%]
+tests/test_api.py::TestMemoriesEndpoints::test_create_memory PASSED      [ 15%]
+tests/test_api.py::TestMemoriesEndpoints::test_list_memories PASSED      [ 20%]
+tests/test_api.py::TestMemoriesEndpoints::test_memory_stats PASSED       [ 25%]
+tests/test_api.py::TestReflectionsEndpoints::test_create_reflection PASSED [ 30%]
+tests/test_api.py::TestReflectionsEndpoints::test_list_reflections PASSED [ 35%]
+tests/test_api.py::TestReflectionsEndpoints::test_reflection_stats PASSED [ 40%]
+tests/test_api.py::TestPredictionsEndpoints::test_create_prediction PASSED [ 45%]
+tests/test_api.py::TestPredictionsEndpoints::test_list_predictions PASSED [ 50%]
+tests/test_api.py::TestPredictionsEndpoints::test_prediction_stats PASSED [ 55%]
+tests/test_api.py::TestSkillsEndpoints::test_list_skills PASSED          [ 60%]
+tests/test_api.py::TestSkillsEndpoints::test_detect_skills PASSED        [ 65%]
+tests/test_api.py::TestSkillsEndpoints::test_skill_stats PASSED          [ 70%]
+tests/test_api.py::TestDashboardEndpoints::test_dashboard PASSED         [ 75%]
+tests/test_api.py::TestKnowledgeEndpoints::test_knowledge_graph PASSED   [ 80%]
+tests/test_api.py::TestKnowledgeEndpoints::test_knowledge_status PASSED  [ 85%]
+tests/test_api.py::TestKnowledgeEndpoints::test_knowledge_search PASSED  [ 90%]
+tests/test_api.py::TestUploadEndpoints::test_supported_types PASSED      [ 95%]
+tests/test_api.py::TestWebSocketEndpoints::test_ws_status PASSED         [100%]
+
+============================== warnings summary ===============================
+C:/msys64/ucrt64/lib/python3.11/site-packages/starlette/formparsers.py:12
+  C:/msys64/ucrt64/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 20 passed, 1 warning in 1.69s ========================
