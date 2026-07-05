@@ -23,31 +23,19 @@ async def get_dashboard(
         if cached is not None:
             return cached
 
-    # Query DB stats and Cognee stats in parallel to avoid sequential blocking
-    db_queries = asyncio.gather(
-        session.execute(select(func.count(Memory.id)).where(Memory.user_id == user_id)),
-        session.execute(select(func.count(Skill.id)).where(Skill.user_id == user_id)),
-        session.execute(select(func.count(Reflection.id)).where(Reflection.user_id == user_id)),
-        session.execute(select(func.count(Prediction.id)).where(Prediction.user_id == user_id)),
-        session.execute(select(func.count(KnowledgeNode.id)).where(KnowledgeNode.user_id == user_id)),
-        session.execute(
-            select(Memory)
-            .where(Memory.user_id == user_id)
-            .order_by(Memory.created_at.desc())
-            .limit(5)
-        ),
-        get_memory_stats(user_id)
+    # Run queries sequentially (SQLAlchemy async session doesn't support concurrent execute)
+    memory_count_result = await session.execute(select(func.count(Memory.id)).where(Memory.user_id == user_id))
+    skill_count_result = await session.execute(select(func.count(Skill.id)).where(Skill.user_id == user_id))
+    reflection_count_result = await session.execute(select(func.count(Reflection.id)).where(Reflection.user_id == user_id))
+    prediction_count_result = await session.execute(select(func.count(Prediction.id)).where(Prediction.user_id == user_id))
+    node_count_result = await session.execute(select(func.count(KnowledgeNode.id)).where(KnowledgeNode.user_id == user_id))
+    recent_memories_result = await session.execute(
+        select(Memory)
+        .where(Memory.user_id == user_id)
+        .order_by(Memory.created_at.desc())
+        .limit(5)
     )
-
-    (
-        memory_count_result,
-        skill_count_result,
-        reflection_count_result,
-        prediction_count_result,
-        node_count_result,
-        recent_memories_result,
-        cognee_stats
-    ) = await db_queries
+    cognee_stats = await get_memory_stats(user_id)
 
     memory_count = memory_count_result.scalar() or 0
     skill_count = skill_count_result.scalar() or 0
