@@ -228,6 +228,7 @@ npx next start -p 3000
 - **Live Demo:** http://localhost:3000 (after setup)
 - **API Docs:** http://localhost:8080/docs
 - **GitHub:** https://github.com/manishgounder71-prog/Hang-Hack
+- **Demo Video:** https://youtu.be/GZ02KMw2hLY
 
 ---
 
