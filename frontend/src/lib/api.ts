@@ -1,12 +1,12 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-async function fetchAPI(endpoint: string, options?: RequestInit) {
+async function fetchAPI(endpoint: string, options?: RequestInit, timeoutMs = 10000) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const res = await fetch(`${API_URL}${endpoint}`, {
@@ -87,7 +87,7 @@ export const api = {
       fetchAPI('/chat', {
         method: 'POST',
         body: JSON.stringify({ message, stream: false }),
-      }),
+      }, 30000),
   },
   memories: {
     list: (query = '', limit = 10, forceRefresh = false) =>
