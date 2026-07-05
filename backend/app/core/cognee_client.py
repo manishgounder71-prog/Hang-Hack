@@ -175,6 +175,7 @@ async def recall_memories(
     """Query Cognee memory using semantic + graph traversal."""
     global COGNEE_ENABLED
     ds = _dataset_name(user_id, dataset)
+    results = None
 
     if HAS_COGNEE and COGNEE_ENABLED:
         try:
@@ -197,6 +198,43 @@ async def recall_memories(
             if "AuthenticationError" in str(e) or "API key" in str(e):
                 logger.warning("Disabling Cognee due to authentication failure.")
                 COGNEE_ENABLED = False
+
+    # Fallback to local SQL keyword search if Cognee search returns nothing or is disabled
+    try:
+        from app.core.database import async_session_factory
+        from app.models.memory import Memory
+        from sqlalchemy import select, or_
+        
+        async with async_session_factory() as session:
+            stmt = select(Memory).where(Memory.user_id == user_id)
+            
+            # Extract keywords > 2 chars
+            words = [w.strip(".,!?;:()\"'").lower() for w in query.split()]
+            keywords = [w for w in words if len(w) > 2 and w not in ("what", "with", "this", "that", "your", "have", "here", "from", "past", "response")]
+            
+            if keywords:
+                filters_list = [Memory.content.ilike(f"%{kw}%") for kw in keywords]
+                stmt = stmt.where(or_(*filters_list))
+                
+            stmt = stmt.order_by(Memory.created_at.desc()).limit(limit)
+            db_res = await session.execute(stmt)
+            db_mems = db_res.scalars().all()
+            
+            fallback_results = [
+                {
+                    "id": m.id,
+                    "content": m.content,
+                    "content_type": m.content_type,
+                    "importance_score": m.importance_score,
+                    "created_at": str(m.created_at),
+                    "source": "sql_fallback"
+                }
+                for m in db_mems
+                if m.content != query # Skip the query itself
+            ]
+            return fallback_results
+    except Exception as db_err:
+        logger.error(f"SQL fallback search failed: {db_err}")
 
     return []
 

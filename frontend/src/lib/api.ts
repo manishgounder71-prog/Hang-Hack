@@ -5,15 +5,23 @@ async function fetchAPI(endpoint: string, options?: RequestInit) {
     'Content-Type': 'application/json',
   }
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    headers: { ...headers, ...options?.headers as Record<string, string> },
-    ...options,
-  })
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => '')
-    throw new Error(`API error: ${res.status} - ${errorBody}`)
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      headers: { ...headers, ...options?.headers as Record<string, string> },
+      ...options,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => '')
+      throw new Error(`API error: ${res.status} - ${errorBody}`)
+    }
+    return res.json()
+  } finally {
+    clearTimeout(timeout)
   }
-  return res.json()
 }
 
 // SSE streaming helper

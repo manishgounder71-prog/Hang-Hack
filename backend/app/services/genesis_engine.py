@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.agents.event_bus import event_bus
-from app.core.cognee_client import recall_memories, remember_content, get_knowledge_graph
+from app.core.cognee_client import recall_memories, remember_content
 from app.core.llm import llm
 from app.models.memory import Memory
 
@@ -39,6 +39,24 @@ class GenesisEngine:
         )
         session.add(db_memory)
 
+        # Fetch recent conversation history (excluding the current user message just inserted)
+        history_stmt = (
+            select(Memory)
+            .where(
+                Memory.user_id == user_id,
+                Memory.content_type.in_(["chat_message", "chat_response"]),
+                Memory.id != db_memory.id
+            )
+            .order_by(Memory.created_at.desc())
+            .limit(6)
+        )
+        history_result = await session.execute(history_stmt)
+        history_mems = list(reversed(history_result.scalars().all()))
+        history_formatted = "\n".join([
+            f"{'User' if m.content_type == 'chat_message' else 'Assistant'}: {m.content}"
+            for m in history_mems
+        ])
+
         # 4. Run reflection agent
         reflection_result = await self.agent_bus.publish("reflection", {
             "action": "reflect",
@@ -50,6 +68,7 @@ class GenesisEngine:
         context = {
             "memories": relevant_memories[:5],
             "reflections": [r.get("reflection", {}) for r in reflection_result if isinstance(r, dict)],
+            "history": history_formatted,
         }
 
         # 5. Generate response
@@ -97,11 +116,32 @@ class GenesisEngine:
         )
         session.add(db_memory)
 
+        # Fetch recent conversation history (excluding the current user message just inserted)
+        history_stmt = (
+            select(Memory)
+            .where(
+                Memory.user_id == user_id,
+                Memory.content_type.in_(["chat_message", "chat_response"]),
+                Memory.id != db_memory.id
+            )
+            .order_by(Memory.created_at.desc())
+            .limit(6)
+        )
+        history_result = await session.execute(history_stmt)
+        history_mems = list(reversed(history_result.scalars().all()))
+        history_formatted = "\n".join([
+            f"{'User' if m.content_type == 'chat_message' else 'Assistant'}: {m.content}"
+            for m in history_mems
+        ])
+
         system = """You are Genesis AI, a self-evolving AI operating system. You remember everything across sessions using Cognee's persistent memory.
 You reference past memories, detect patterns, and provide contextual responses."""
 
         memories_json = json.dumps([{k: str(v) for k, v in m.items() if isinstance(v, (str, int, float, bool))} for m in relevant_memories], default=str)[:2000]
         user = f"""User message: {message}
+
+Recent Conversation History:
+{history_formatted}
 
 Relevant memories from Cognee: {memories_json}
 
@@ -152,6 +192,9 @@ You continuously learn, reflect, and predict based on memory patterns."""
 
         user = f"""User message: {message}
 
+Recent Conversation History:
+{context.get("history", "None")}
+
 Relevant memories from Cognee: {memories_json}
 Recent self-reflections: {reflections_json}
 
@@ -162,7 +205,7 @@ Be concise but thorough."""
         try:
             content = await llm.chat(system, user)
         except Exception as e:
-            logger.warning(f"LLM chat failed, using fallback: {e}")
+            logger.error(f"LLM chat failed, using fallback: {e}", exc_info=True)
             content = f"I remember {len(context.get('memories', []))} relevant memories from our past interactions. Based on what I've learned, here's my response to: {message}"
 
         memories_used = [str(m.get("id", "")) for m in context.get("memories", []) if isinstance(m, dict)]

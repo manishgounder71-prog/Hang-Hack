@@ -15,7 +15,7 @@ body {
   color: rgb(var(--foreground));
   background: rgb(var(--background));
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 @layer utilities {

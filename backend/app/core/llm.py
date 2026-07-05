@@ -26,15 +26,39 @@ class LLMClient:
 
     async def chat_stream(self, system_prompt: str, user_prompt: str):
         provider = self.provider.lower()
-        if provider == "openai":
-            async for chunk in self._openai_stream(system_prompt, user_prompt):
+        if provider in ("openai", "groq"):
+            stream_method = self._openai_stream if provider == "openai" else self._groq_stream
+            async for chunk in stream_method(system_prompt, user_prompt):
                 yield chunk
-        elif provider == "groq":
-            async for chunk in self._groq_stream(system_prompt, user_prompt):
+        elif provider == "google":
+            async for chunk in self._google_stream(system_prompt, user_prompt):
                 yield chunk
         else:
             async for chunk in self._openai_stream(system_prompt, user_prompt):
                 yield chunk
+
+    async def _google_stream(self, system_prompt: str, user_prompt: str):
+        import httpx
+        async with httpx.AsyncClient() as client:
+            body = {
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
+            }
+            key = self.api_key or "DEMO_KEY"
+            model = self.model or "gemini-2.0-flash"
+            base = self.api_url or "https://generativelanguage.googleapis.com/v1beta"
+            url = f"{base}/models/{model}:streamGenerateContent?alt=sse&key={key}"
+            async with client.stream("POST", url, json=body) as resp:
+                async for line in resp.aiter_lines():
+                    if line.startswith("data: "):
+                        import json
+                        data = json.loads(line[6:])
+                        candidates = data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts:
+                                yield parts[0].get("text", "")
 
     async def _openai_stream(self, system_prompt: str, user_prompt: str):
         from openai import AsyncOpenAI
@@ -90,6 +114,8 @@ class LLMClient:
                 "system": system_prompt,
                 "messages": [{"role": "user", "content": user_prompt}],
             }
+            if response_format:
+                body["metadata"] = {"response_format": response_format}
             headers = {
                 "x-api-key": self.api_key,
                 "anthropic-version": "2023-06-01",
@@ -111,6 +137,8 @@ class LLMClient:
                     {"role": "user", "content": user_prompt},
                 ],
             }
+            if response_format:
+                body["format"] = response_format
             url = (self.api_url or "http://localhost:11434") + "/api/chat"
             resp = await client.post(url, json=body)
             data = resp.json()
@@ -120,9 +148,12 @@ class LLMClient:
         import httpx
         async with httpx.AsyncClient() as client:
             body = {
-                "contents": [{"role": "user", "parts": [{"text": system_prompt + "\n\n" + user_prompt}]}],
+                "system_instruction": {"parts": [{"text": system_prompt}]},
+                "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
                 "generationConfig": {"temperature": 0.7, "maxOutputTokens": 4096},
             }
+            if response_format:
+                body["generationConfig"]["responseMimeType"] = "application/json"
             key = self.api_key or "DEMO_KEY"
             model = self.model or "gemini-2.0-flash"
             base = self.api_url or "https://generativelanguage.googleapis.com/v1beta"
