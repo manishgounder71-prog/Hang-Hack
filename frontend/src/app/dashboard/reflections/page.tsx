@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Eye, ThumbsUp, ThumbsDown, Lightbulb, GitBranch, AlertCircle } from 'lucide-react'
+import { Eye, ThumbsUp, ThumbsDown, Lightbulb, GitBranch, AlertCircle, RefreshCw, Sparkles } from 'lucide-react'
 import { api } from '@/lib/api'
 
 interface Reflection {
@@ -19,9 +19,10 @@ interface Reflection {
 export default function ReflectionsPage() {
   const [reflections, setReflections] = useState<Reflection[]>([])
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
-  const fetchReflections = async () => {
+  const fetchReflections = useCallback(async () => {
     try {
       setError('')
       const data = await api.reflections.list()
@@ -31,9 +32,26 @@ export default function ReflectionsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { fetchReflections() }, [])
+  const generateReflection = useCallback(async () => {
+    setGenerating(true)
+    setError('')
+    try {
+      await api.reflections.create({
+        trigger_event: 'chat_session_review',
+        what_worked: 'Reviewed recent project discussions and technical decisions',
+        what_failed: '',
+      })
+      await fetchReflections()
+    } catch {
+      setError('Failed to generate reflection')
+    } finally {
+      setGenerating(false)
+    }
+  }, [fetchReflections])
+
+  useEffect(() => { fetchReflections() }, [fetchReflections])
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -45,6 +63,18 @@ export default function ReflectionsPage() {
           <h1 className="text-2xl font-bold mb-1">How Genesis Learns</h1>
           <p className="text-sm text-gray-500 mb-6">Every completed task generates a reflection that improves future behavior</p>
         </motion.div>
+
+        <div className="flex items-center justify-between mb-6">
+          <div />
+          <button
+            onClick={generateReflection}
+            disabled={generating}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {generating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+            {generating ? 'Generating...' : 'Generate Reflection'}
+          </button>
+        </div>
 
         {error && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs mb-4">
@@ -60,7 +90,7 @@ export default function ReflectionsPage() {
         ) : reflections.length === 0 ? (
           <div className="text-center py-20">
             <Eye className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-500 text-sm">No reflections yet. Reflections are automatically generated after tasks.</p>
+            <p className="text-gray-500 text-sm">No reflections yet. Click "Generate Reflection" to analyze recent conversations.</p>
           </div>
         ) : (
           <div className="space-y-4">

@@ -9,7 +9,8 @@ from sqlalchemy import select
 from app.core.cognee_client import remember_content
 from app.core.rag import rag_store
 from app.core.llm import llm
-from app.models.memory import Memory
+from app.models.memory import Memory, Reflection
+from app.services.reflection_service import ReflectionService
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,25 @@ class GenesisEngine:
             content_type="chat_response", metadata={"direction": "assistant"},
         )
         session.add(response_memory)
+
+        try:
+            svc = ReflectionService()
+            result = await svc.generate_reflection(
+                trigger_event="chat_response",
+                context={"what_worked": message, "what_failed": ""},
+            )
+            db_reflection = Reflection(
+                user_id=user_id,
+                trigger_event="chat_response",
+                what_worked=result.get("what_worked", ""),
+                what_failed=result.get("what_failed", ""),
+                improvements=result.get("improvements", ""),
+                patterns=result.get("patterns", ""),
+                influence_score=result.get("influence_score", 0.5),
+            )
+            session.add(db_reflection)
+        except Exception:
+            pass
 
         return response
 
@@ -137,6 +157,25 @@ Respond naturally."""
             metadata={"direction": "assistant", "streamed": True},
         )
         session.add(response_memory)
+
+        try:
+            svc = ReflectionService()
+            result = await svc.generate_reflection(
+                trigger_event="chat_response",
+                context={"what_worked": message, "what_failed": ""},
+            )
+            db_reflection = Reflection(
+                user_id=user_id,
+                trigger_event="chat_response",
+                what_worked=result.get("what_worked", ""),
+                what_failed=result.get("what_failed", ""),
+                improvements=result.get("improvements", ""),
+                patterns=result.get("patterns", ""),
+                influence_score=result.get("influence_score", 0.5),
+            )
+            session.add(db_reflection)
+        except Exception:
+            pass
 
         yield f"data: {json.dumps({'done': True})}\n\n"
 
