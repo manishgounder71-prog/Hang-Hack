@@ -30,9 +30,16 @@ Every conversation, file upload, and event is:
 
 The result: Genesis gets smarter with every interaction, across infinite sessions.
 
----
+## ⚖️ AI Disclosure
 
-## 🏆 Why This Wins
+As required by Rule 8 of the WeMakeDevs x Cognee Hackathon, I declare that:
+
+- **AI assistants used:** Claude (Anthropic) via the opencode CLI tool for code generation, refactoring, test writing, and documentation
+- **Extent of use:** Architecture suggestions, code implementation, test generation, README writing, and landing page content
+- **Human review:** All AI-generated code was reviewed, tested, and approved before committing
+- **Original work:** The project concept, architecture decisions, Cognee integration design, and creative direction are entirely my own
+
+No AI was used to generate the submission video, blog post, or social media content (if applicable).
 
 ### Best Use of Cognee (Open Source)
 

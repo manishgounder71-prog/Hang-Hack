@@ -45,8 +45,28 @@ async def lifespan(app: FastAPI):
             print("Redis cache unavailable — running without")
     except Exception as e:
         print(f"Cache init skipped: {e}")
+    await auto_seed()
     yield
     await cache.close()
+
+
+async def auto_seed():
+    """Auto-seed demo data on first launch if no data exists for 'demo' user."""
+    try:
+        from app.core.database import async_session_factory
+        from app.models.memory import Memory
+        from sqlalchemy import select, func
+        from app.core.seed_demo import seed_demo_data
+
+        async with async_session_factory() as session:
+            count = await session.execute(select(func.count(Memory.id)).where(Memory.user_id == "demo"))
+            if count.scalar() == 0:
+                result = await seed_demo_data(session)
+                print(f"Auto-seeded demo data: {result.get('stats', {})}")
+            else:
+                print("Demo data already exists")
+    except Exception as e:
+        print(f"Auto-seed skipped: {e}")
 
 
 app = FastAPI(

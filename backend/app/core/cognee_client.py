@@ -134,8 +134,14 @@ def _dataset_name(user_id: str, dataset: Optional[str] = None) -> str:
     return f"{COGNEE_DATASET}_{user_id}" if user_id else COGNEE_DATASET
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# COGNEE API: remember()
+# Maps to: cognee.add() + cognee.cognify()
+# SDK docs: https://docs.cognee.ai/api-reference/remember
+# ──────────────────────────────────────────────────────────────────────────────
+
 async def remember_content(
-    content: str,
+    content: str = "",
     content_type: str = "text",
     user_id: str = "",
     metadata: dict = None,
@@ -164,6 +170,12 @@ async def remember_content(
 
     return {"cognee_id": None, "content": content[:200], "dataset": ds, "stored": True, "mode": "fallback"}
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# COGNEE API: recall()
+# Maps to: cognee.search()
+# SDK docs: https://docs.cognee.ai/api-reference/recall
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def recall_memories(
     query: str,
@@ -204,22 +216,22 @@ async def recall_memories(
         from app.core.database import async_session_factory
         from app.models.memory import Memory
         from sqlalchemy import select, or_
-        
+
         async with async_session_factory() as session:
             stmt = select(Memory).where(Memory.user_id == user_id)
-            
+
             # Extract keywords > 2 chars
             words = [w.strip(".,!?;:()\"'").lower() for w in query.split()]
             keywords = [w for w in words if len(w) > 2 and w not in ("what", "with", "this", "that", "your", "have", "here", "from", "past", "response")]
-            
+
             if keywords:
                 filters_list = [Memory.content.ilike(f"%{kw}%") for kw in keywords]
                 stmt = stmt.where(or_(*filters_list))
-                
+
             stmt = stmt.order_by(Memory.created_at.desc()).limit(limit)
             db_res = await session.execute(stmt)
             db_mems = db_res.scalars().all()
-            
+
             fallback_results = [
                 {
                     "id": m.id,
@@ -230,7 +242,7 @@ async def recall_memories(
                     "source": "sql_fallback"
                 }
                 for m in db_mems
-                if m.content != query # Skip the query itself
+                if m.content != query
             ]
             return fallback_results
     except Exception as db_err:
@@ -238,6 +250,12 @@ async def recall_memories(
 
     return []
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# COGNEE API: improve() / memify()
+# Maps to: cognee.memify()
+# SDK docs: https://docs.cognee.ai/api-reference/improve
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def improve_memories(user_id: str = "", dataset: str = None):
     """Run Cognee memify to build and enrich the knowledge graph."""
@@ -262,6 +280,12 @@ async def memify_content(user_id: str = "", dataset: str = None):
     """Alias for improve - runs post-ingestion enrichment."""
     return await improve_memories(user_id, dataset)
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# COGNEE API: forget()
+# Maps to: cognee.datasets.delete_dataset()
+# SDK docs: https://docs.cognee.ai/api-reference/forget
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def forget_dataset(dataset_name: str, user_id: str = ""):
     """Surgically prune or delete a dataset from Cognee."""
@@ -426,7 +450,7 @@ async def get_knowledge_graph(user_id: str = "", dataset: str = None, depth: int
 
         except (AttributeError, TypeError, KeyError) as e:
             # Cognee search API may return results in unexpected formats
-            logger.info(f"Cognee graph extraction format issue ({e}) — falling back to SQLAlchemy")
+            logger.info(f"Cognee graph extraction format issue ({e}) ΓÇö falling back to SQLAlchemy")
         except Exception as e:
             logger.error(f"Cognee knowledge graph extraction failed: {e}")
             if "AuthenticationError" in str(e) or "API key" in str(e):
@@ -510,3 +534,5 @@ async def get_memory_stats(user_id: str = ""):
         except Exception as e:
             handle_cognee_failure(e)
     return {"memory_count": 0, "knowledge_nodes": 0, "relationships": 0, "recent_memories": []}
+
+
