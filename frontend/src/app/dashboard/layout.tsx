@@ -76,14 +76,14 @@ export default function DashboardLayout({
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >
-        <div className="p-3 space-y-0.5">
+        <div className="p-3 space-y-0.5 pb-24">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
             return (
               <Link
                 key={item.label}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                className={`flex items-center gap-3 px-3 py-2.5 sm:py-2 rounded-lg text-sm transition-all duration-200 ${
                   isActive
                     ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/10 text-blue-400 border-l-2 border-blue-500'
                     : 'text-gray-500 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
@@ -114,7 +114,7 @@ export default function DashboardLayout({
       </motion.aside>
 
       {/* Main content viewport */}
-      <main className="lg:ml-56 pt-14 min-h-screen">
+      <main className="lg:ml-56 pt-14 min-h-dvh">
         {children}
       </main>
     </div>

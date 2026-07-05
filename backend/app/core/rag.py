@@ -56,9 +56,9 @@ def _text_to_vector(text: str) -> list[float]:
     counts = Counter(features)
     max_count = max(counts.values()) if counts else 1
 
-    vec = [0.0] * dim
+    vec = [0.0] * VECTOR_DIM
     for feat, count in counts.items():
-        idx = _hash_feature(feat, dim)
+        idx = _hash_feature(feat, VECTOR_DIM)
         tf = 0.5 + 0.5 * (count / max_count)
         vec[idx] += tf
 

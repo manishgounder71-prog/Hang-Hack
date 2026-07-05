@@ -183,7 +183,7 @@ class MemoryAgent:
     async def _enrich_memory(self, event: dict) -> dict:
         """Enrich a memory with extracted entities and metadata."""
         content = event.get("content", "")
-        entities = self._extract_entities(content)
+        entities = extract_entities_from_text(content)
         importance = self._compute_importance(content, "text", {})
         return {
             "entities": entities,
@@ -231,7 +231,3 @@ class MemoryAgent:
             score = (score + float(explicit)) / 2
 
         return min(1.0, max(0.0, score))
-
-    def _extract_entities(self, content: str) -> list[str]:
-        """Simple entity extraction using capitalization patterns."""
-        return list(extract_entities_from_text(content))

@@ -1,4 +1,3 @@
-import re
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Query
@@ -7,66 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.cognee_client import get_knowledge_graph, search_graph, recall_memories, improve_memories, cognee_cognify, get_cognee_status
+from app.core.utils import extract_entities_from_text
 from app.models.memory import KnowledgeNode
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
-
-TECH_KEYWORDS = {
-    "python", "react", "typescript", "javascript", "docker", "fastapi", "postgresql",
-    "sqlalchemy", "nextjs", "node", "api", "rest", "graphql", "redis", "aws", "git",
-    "linux", "mongodb", "css", "html", "svelte", "vue", "angular", "tensorflow",
-    "pytorch", "rag", "llm", "ai", "ml", "cognee", "genesis", "swiftcart", "helios",
-    "solartracker", "kubernetes", "ci/cd", "oauth", "jwt", "websocket",
-}
-
-
-STOP_WORDS = {
-    "i", "the", "this", "that", "what", "when", "where", "why", "how", "my",
-    "me", "we", "it", "so", "to", "is", "in", "of", "for", "on", "a", "an",
-    "be", "has", "have", "do", "does", "did", "will", "would", "can", "could",
-    "should", "may", "might", "shall", "am", "are", "was", "were", "been",
-    "being", "not", "no", "or", "and", "but", "if", "as", "at", "by", "from",
-    "with", "about", "into", "through", "during", "before", "after", "above",
-    "below", "let", "based", "however", "there", "their", "they", "them",
-    "set", "get", "use", "using", "used", "make", "making", "made",
-    "need", "needs", "needed", "like", "look", "looks", "looking",
-}
-
-
-def _extract_entities(text: str) -> list[str]:
-    sentences = re.split(r"[.!?]+", text)
-    result = set()
-
-    for sent in sentences:
-        sent = sent.strip()
-        if not sent:
-            continue
-        lower_sent = sent.lower()
-        tech_in_sent = {w for w in re.findall(r"[a-zA-Z0-9+#/]+", lower_sent) if w in TECH_KEYWORDS}
-        for t in tech_in_sent:
-            idx = lower_sent.index(t)
-            if idx == 0 or (idx > 0 and lower_sent[idx - 1] in (" ", "-", "/")):
-                original = sent[idx:idx + len(t)]
-                if t == "helios":
-                    result.add("Project Helios")
-                else:
-                    result.add(original if original[0].isupper() else t.capitalize())
-
-        multi_word = re.findall(r"[A-Z][a-z]+(?:\s[A-Z][a-z]+)*", sent)
-        for mw in multi_word:
-            mw = mw.strip()
-            if len(mw) <= 1:
-                continue
-            first_is_sentence_start = sent.startswith(mw)
-            if first_is_sentence_start and mw.lower() not in TECH_KEYWORDS:
-                if mw.split()[0].lower() in STOP_WORDS:
-                    continue
-                if len(mw.split()) == 1:
-                    continue
-            if mw.lower() not in STOP_WORDS:
-                result.add(mw)
-
-    return list(result)[:5]
 
 
 @router.get("/graph")
@@ -123,7 +66,7 @@ async def knowledge_graph(
             })
 
         memory_list.append(mem)
-        extracted = mem.entities or _extract_entities(mem.content)
+        extracted = mem.entities or extract_entities_from_text(mem.content)
         ent_ids = []
 
         for ent in extracted:

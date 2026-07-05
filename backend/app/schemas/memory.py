@@ -79,6 +79,12 @@ class ChatRequest(BaseModel):
     message: str
     stream: bool = False
 
+    @classmethod
+    def validate_message(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("message cannot be empty")
+        return v
+
 
 class ChatResponse(BaseModel):
     response: str

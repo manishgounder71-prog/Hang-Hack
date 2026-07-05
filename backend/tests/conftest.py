@@ -1,9 +1,7 @@
 """Test fixtures for Genesis AI backend."""
 import os
-# Override DATABASE_URL to use SQLite BEFORE any app modules are imported.
-# This ensures the global engine uses SQLite and the lifespan's init_db()
-# doesn't hang trying to connect to a non-existent PostgreSQL server.
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["AUTH_ENABLED"] = "False"
 
 import pytest
 import pytest_asyncio
@@ -14,7 +12,6 @@ from app.models.memory import Base
 from app.main import app
 from unittest.mock import AsyncMock, patch, MagicMock
 
-# Use the same SQLite URL for the test fixture engine
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
@@ -33,18 +30,12 @@ async def override_get_session():
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_test_db():
-    # Create SQLite tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
     app.dependency_overrides[get_session] = override_get_session
-    
     yield
-    
-    # Drop tables
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-        
     app.dependency_overrides.clear()
 
 
@@ -71,7 +62,7 @@ async def mock_cognee_calls():
          patch("app.core.cognee_client.get_knowledge_graph", new_callable=AsyncMock) as mock_graph, \
          patch("app.core.cognee_client.get_cognee_status", new_callable=AsyncMock) as mock_status, \
          patch("app.core.cognee_client.get_memory_stats", new_callable=AsyncMock) as mock_stats:
-        
+
         mock_remember.return_value = {"cognee_id": "test-cognee-id", "content": "test", "dataset": "test", "stored": True}
         mock_recall.return_value = []
         mock_improve.return_value = {"status": "improved", "result": "mock"}
@@ -88,7 +79,7 @@ async def mock_llm_client():
         mock_chat.return_value = (
             '{"what_worked": "worked", "what_failed": "failed", "improvements": "improve", '
             '"patterns": "pattern", "influence_score": 0.8, "prediction": "predict", '
-            '"prediction_type": "type", "confidence": 0.9, "reasoning": "reason", '
+            '"prediction_type": "general", "confidence": 0.9, "reasoning": "reason", '
             '"skill_detected": true, "name": "skill", "description": "desc", '
             '"steps": [{"step": 1}]}'
         )
@@ -97,8 +88,12 @@ async def mock_llm_client():
 
 @pytest_asyncio.fixture
 async def async_client():
-    """Create an async test client for FastAPI with proper lifecycle."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
+
+@pytest_asyncio.fixture
+async def db_session():
+    async with TestSessionLocal() as session:
+        yield session

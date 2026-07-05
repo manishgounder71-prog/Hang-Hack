@@ -76,7 +76,7 @@ export default function DashboardWidget({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -2, scale: 1.01 }}
-      className={`relative overflow-hidden group rounded-2xl p-5 bg-gradient-to-br ${cc.bg} border ${cc.border} hover:bg-white/[0.04] transition-all duration-300 card-shine`}
+      className={`relative overflow-hidden group rounded-2xl p-3 sm:p-5 bg-gradient-to-br ${cc.bg} border ${cc.border} hover:bg-white/[0.04] transition-all duration-300 card-shine`}
     >
       <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-bl from-white/[0.03] to-transparent rounded-bl-full" />
 
@@ -96,8 +96,8 @@ export default function DashboardWidget({
         )}
       </div>
 
-      <p className="text-2xl font-bold font-mono tracking-tight mb-0.5">{displayValue}</p>
-      <p className="text-xs text-gray-500">{title}</p>
+      <p className="text-lg sm:text-xl md:text-2xl font-bold font-mono tracking-tight mb-0.5">{displayValue}</p>
+      <p className="text-[10px] sm:text-xs text-gray-500">{title}</p>
       {subtitle && <p className="text-[10px] text-gray-600 mt-1.5">{subtitle}</p>}
 
       <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -25,6 +25,15 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "./data/uploads"
 
+    # Security
+    SECRET_KEY: str = "change-me-in-production"
+    AUTH_ENABLED: bool = False
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
+
+    # Rate limiting
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_PER_MINUTE: int = 60
+
     model_config = {"env_file": ENV_FILE, "env_file_encoding": "utf-8", "extra": "ignore"}
 
 

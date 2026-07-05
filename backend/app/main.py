@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api import chat, memories, reflections, predictions, skills, knowledge, dashboard, upload, websocket
+from app.core.auth import get_current_user
+from app.core.middleware import RateLimitMiddleware, RequestValidationMiddleware
+from app.api import auth as auth_router
+from app.api import chat, memories, reflections, predictions, skills, knowledge, dashboard, upload, websocket, monitor
 from app.api import settings as settings_router
 from app.agents.event_bus import event_bus
 from app.agents.memory_agent import MemoryAgent
@@ -19,25 +22,21 @@ from app.core.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Register agents
     event_bus.subscribe("memory", MemoryAgent())
     event_bus.subscribe("reflection", ReflectionAgent())
     event_bus.subscribe("prediction", PredictionAgent())
     event_bus.subscribe("knowledge", KnowledgeGraphAgent())
     event_bus.subscribe("learning", LearningAgent())
-    # Initialize Cognee
     try:
         result = await init_cognee()
         print(f"Cognee init: {result.get('status', 'unknown')}")
     except Exception as e:
         print(f"Cognee init skipped: {e}")
-    # Initialize database
     try:
         await init_db()
         print("Database initialized")
     except Exception as e:
         print(f"DB init skipped: {e}")
-    # Initialize Redis cache
     try:
         ok = await cache.initialize()
         if ok:
@@ -47,7 +46,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Cache init skipped: {e}")
     yield
-    # Cleanup cache on shutdown
     await cache.close()
 
 
@@ -59,15 +57,20 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+allowed_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Register routers
+app.add_middleware(RateLimitMiddleware, requests_per_minute=settings.RATE_LIMIT_PER_MINUTE)
+app.add_middleware(RequestValidationMiddleware)
+
+app.include_router(monitor.router)
+app.include_router(auth_router.router)
 app.include_router(chat.router)
 app.include_router(memories.router)
 app.include_router(reflections.router)

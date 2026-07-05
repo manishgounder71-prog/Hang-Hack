@@ -55,7 +55,7 @@ class KnowledgeGraphAgent:
 
         for mem in memories:
             mem_id = mem.get("id", "")
-            entities = mem.get("entities", self._extract_entities_fast(mem.get("content", "")))
+            entities = mem.get("entities", extract_entities_from_text(mem.get("content", "")))
             tags = mem.get("tags", [])
 
             # Add memory node
@@ -231,10 +231,6 @@ class KnowledgeGraphAgent:
             return {"cognee_connected": False, "message": "Cognee unavailable"}
 
     # ── Intelligence ─────────────────────────────────────────────────────
-
-    def _extract_entities_fast(self, text: str) -> list[str]:
-        """Quick entity extraction without external dependencies."""
-        return list(extract_entities_from_text(text))
 
     def _infer_cross_relationships(self, nodes: list[dict], edges: list[dict]) -> list[dict]:
         """Infer relationships based on shared connections."""

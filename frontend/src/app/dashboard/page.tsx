@@ -106,8 +106,8 @@ export default function DashboardPage() {
       )}
 
       {stats && (
-      <div className="grid xl:grid-cols-[1fr_380px] gap-0">
-        <div className="p-4 md:p-6 space-y-5 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100vh - 56px)' }}>
+      <div className="grid xl:grid-cols-[1fr_minmax(320px,380px)] gap-0">
+        <div className="p-3 sm:p-4 md:p-6 space-y-5 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100dvh - 56px)' }}>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center gap-2 mb-1">
               <Bot className="w-4 h-4 text-blue-400" />
@@ -117,7 +117,7 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500">Your AI brain is evolving. Here&apos;s the latest activity.</p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
             <DashboardWidget icon={Brain} title="Memory Count" value={stats.memory_count} color="blue" delay={0} />
             <DashboardWidget icon={Network} title="Knowledge Nodes" value={stats.knowledge_nodes} color="purple" delay={0.05} />
             <DashboardWidget icon={Sparkles} title="Relationships" value={stats.relationships} color="teal" delay={0.1} />
@@ -125,7 +125,7 @@ export default function DashboardPage() {
             <DashboardWidget icon={TrendingUp} title="Evolution" value={`Lvl ${stats.evolution_level}`} color="amber" delay={0.2} />
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             <DashboardWidget icon={Timer} title="Learning" value={`${Math.round(stats.learning_progress * 100)}%`} subtitle="Knowledge acquired" color="blue" delay={0.25} />
             <DashboardWidget icon={Eye} title="Reflection" value={`${Math.round(stats.reflection_score * 100)}%`} subtitle="Self-awareness" color="purple" delay={0.3} />
             <DashboardWidget icon={Target} title="Predictions" value={`${Math.round(stats.prediction_confidence * 100)}%`} subtitle="Confidence" color="teal" delay={0.35} />
@@ -211,7 +211,7 @@ export default function DashboardPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.15 }}
           className="border-l border-white/5 flex flex-col"
-          style={{ height: 'calc(100vh - 56px)' }}
+          style={{ height: 'calc(100dvh - 56px)' }}
         >
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <h3 className="font-semibold text-sm flex items-center gap-2">

@@ -16,6 +16,14 @@ body {
   background: rgb(var(--background));
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Larger tap targets on mobile without breaking desktop hover */
+@media (hover: none) and (pointer: coarse) {
+  input, button, a, select, textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
 }
 
 @layer utilities {

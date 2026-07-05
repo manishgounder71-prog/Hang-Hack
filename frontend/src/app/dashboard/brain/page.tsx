@@ -16,7 +16,7 @@ const BrainGraph = dynamic(() => import('@/components/BrainGraph'), {
 
 export default function BrainPage() {
   return (
-    <div className="h-[calc(100vh-56px)] relative">
+    <div className="h-[calc(100dvh-56px)] relative">
         {/* The 3D graph fills the full viewport */}
         <BrainGraph />
 
