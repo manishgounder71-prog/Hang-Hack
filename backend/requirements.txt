@@ -1,7 +1,6 @@
 fastapi>=0.116.2
 uvicorn[standard]>=0.34.0
-cognee==0.4.0
-aiosqlite>=0.19.0  # Dev dependency for testing with in-memory SQLite
+cognee>=1.2.2; python_version < '3.14'
 pydantic>=2.10.5
 pydantic-settings>=2.5.0
 sqlalchemy>=2.0.39

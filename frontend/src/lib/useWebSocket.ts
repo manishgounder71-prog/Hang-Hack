@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 
 type MessageHandler = (data: any) => void
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 /**
  * Hook that connects to the Genesis AI WebSocket, auto-reconnects on disconnect,
